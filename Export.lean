@@ -170,7 +170,8 @@ partial def dumpConstant (c : Name) : M Unit := do
       return
     dumpDeps val.type
     for ctor in val.ctors do
-      dumpDeps ((← read).env.find? ctor |>.get!.type)
+      dumpConstant ctor
+      --dumpDeps ((← read).env.find? ctor |>.get!.type)
     let indNameIdxs ← val.all.mapM dumpName
     let ctorNameIdxs ← val.ctors.mapM (fun ctor => dumpName ctor)
     let isRec := if val.isRec then 1 else 0
