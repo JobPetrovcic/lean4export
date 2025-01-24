@@ -1,0 +1,39 @@
+import Lean
+open Lean
+
+-- a function that takes a ConstantInfo and returns a list of the names of the constants it depends on
+
+def getDepsExpr (e : Expr) : List Name :=
+  let depsArray := e.getUsedConstants
+  depsArray.toList
+
+-- WARNING: the returned list might contain duplicates
+def getDeclarationDeps : ConstantInfo → List Name
+  | .axiomInfo val =>
+    let typeDeps := getDepsExpr val.type
+    typeDeps
+  | .defnInfo val =>
+    let typeDeps := getDepsExpr val.type
+    let valueDeps := getDepsExpr val.value
+    typeDeps ++ valueDeps
+  | .thmInfo val =>
+    let typeDeps := getDepsExpr val.type
+    let valueDeps := getDepsExpr val.value
+    typeDeps ++ valueDeps
+  | .opaqueInfo val =>
+    let typeDeps := getDepsExpr val.type
+    let valueDeps := getDepsExpr val.value
+    typeDeps ++ valueDeps
+  | .quotInfo val =>
+    let typeDeps := getDepsExpr val.type
+    typeDeps
+  | .inductInfo val =>
+    let typeDeps := getDepsExpr val.type
+    val.ctors ++ typeDeps
+  | .ctorInfo val =>
+    let typeDeps := getDepsExpr val.type
+    typeDeps
+  | .recInfo val =>
+    let typeDeps := getDepsExpr val.type
+    let ruleDeps := val.rules.map (fun rule => getDepsExpr rule.rhs)
+    typeDeps ++ ruleDeps.join

@@ -3,10 +3,11 @@ open Lake DSL
 
 package lean4export
 
+lean_lib JSON
 lean_lib Export
 lean_lib Test
 
 @[default_target]
 lean_exe lean4export where
-  root := `Main
+  root := `JSONMain
   supportInterpreter := true
