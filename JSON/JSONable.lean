@@ -49,7 +49,7 @@ instance : JSONable Tag where
 
 def JSONkvpair (k : String) (v : String) : String :=s!"{surroundWithQuotes k}: {v}"
 #eval JSONkvpair "a" "b"
-def JSONcommaJoin (xs : List String) : String := xs.foldr (fun acc x => acc ++ ", " ++ x) ""
+def JSONcommaJoin (xs : List String) : String := String.intercalate ", " xs
 #eval JSONcommaJoin ["a", "b", "c"]
 def JSONkvpairs (kvs : List (String × String)) : List String := kvs.map (fun ⟨k, v⟩ => JSONkvpair k v)
 #eval JSONkvpairs [("a", "b"), ("c", "d")]
@@ -76,25 +76,24 @@ instance : JSONable Level where json l := jsonLevel l
 
 def jsonExpr (e : Expr) : String :=
   -- currently ignoring binder infos
-  let kvpairs := match e with
-    | .mdata .. => panic! "mdata cannot be exported"
-    | .fvar .. => panic! "fvars cannot be exported"
-    | .mvar .. => panic! "mvars cannot be exported"
-    | .bvar i => [("tag", json Tag.BVar), ("idx", json i)]
-    | .sort l => [("tag", json Tag.Sort), ("level", json l)]
-    | .const n us => [("tag", json Tag.Const), ("name", json n), ("us", jsonListAsJSONList us)]
-    | .lit (.natVal i) => [("tag", json Tag.NatLit), ("val", json i)]
-    | .lit (.strVal s) => [("tag", json Tag.StrLit), ("val", s)]
-    | .app f a => [("tag", json Tag.App), ("fn", jsonExpr f), ("arg", jsonExpr a)]
-    | .lam n d b _bi =>
+  match e with
+  | .mdata _ e => jsonExpr e
+  | .fvar .. => panic! "fvars cannot be exported"
+  | .mvar .. => panic! "mvars cannot be exported"
+  | .bvar i => json [("tag", json Tag.BVar), ("idx", json i)]
+  | .sort l => json [("tag", json Tag.Sort), ("level", json l)]
+  | .const n us => json [("tag", json Tag.Const), ("name", json n), ("us", jsonListAsJSONList us)]
+  | .lit (.natVal i) => json [("tag", json Tag.NatLit), ("val", json i)]
+  | .lit (.strVal s) => json [("tag", json Tag.StrLit), ("val", s)]
+  | .app f a => json [("tag", json Tag.App), ("fn", jsonExpr f), ("arg", jsonExpr a)]
+  | .lam n d b _bi =>
       --[("tag", json Tag.Lambda), ("info", json bi), ("name", json n), ("domain", json d), ("body", json b)]
-      [("tag", json Tag.Lambda), ("bname", json n), ("arg_type", jsonExpr d), ("body", jsonExpr b)]
-    | .letE n d v b _ =>
-      [("tag", json Tag.Let), ("bname", json n), ("arg_type", jsonExpr d), ("val", jsonExpr v), ("body", jsonExpr b)]
-    | .forallE n d b _bi =>
-      [("tag", json Tag.Pi), ("bname", json n), ("arg_type", jsonExpr d), ("body_type", jsonExpr b)]
-    | .proj s i e2 => [("tag", json Tag.Proj), ("struct", json s), ("idx", json i), ("expr", jsonExpr e2)]
-  json kvpairs
+      json [("tag", json Tag.Lambda), ("bname", json n), ("arg_type", jsonExpr d), ("body", jsonExpr b)]
+  | .letE n d v b _ =>
+      json [("tag", json Tag.Let), ("bname", json n), ("arg_type", jsonExpr d), ("val", jsonExpr v), ("body", jsonExpr b)]
+  | .forallE n d b _bi =>
+      json [("tag", json Tag.Pi), ("bname", json n), ("arg_type", jsonExpr d), ("body_type", jsonExpr b)]
+  | .proj s i e2 => json [("tag", json Tag.Proj), ("struct", json s), ("idx", json i), ("expr", jsonExpr e2)]
 
 instance : JSONable Expr where json e := jsonExpr e
 
@@ -114,8 +113,7 @@ def jsonNameListAsLevelParamList (ns : List Name) : String := jsonListAsJSONList
 
 instance : JSONable ConstantVal where
   json cv :=
-    let kvpairs := [("tag", json Tag.DeclarationInfo), ("name", json cv.name), ("level_params", jsonNameListAsLevelParamList cv.levelParams ), ("type", jsonExpr cv.type)]
-    json kvpairs
+    json [("tag", json Tag.DeclarationInfo), ("name", json cv.name), ("level_params", jsonNameListAsLevelParamList cv.levelParams ), ("type", jsonExpr cv.type)]
 
 instance : JSONable AxiomVal where
   json ai :=
