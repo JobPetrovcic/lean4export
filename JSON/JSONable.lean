@@ -8,7 +8,7 @@ open JSONable
 
 def surroundWithQuotes (s : String) : String := s!"\"{s}\""
 
-instance : JSONable Bool where json b := if b then "True" else "False"
+instance : JSONable Bool where json b := toString b
 instance : JSONable Nat where json n := toString n
 instance : JSONable Name where json n := surroundWithQuotes n.toString
 instance : JSONable String where json s := s
