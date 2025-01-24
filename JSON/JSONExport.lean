@@ -20,8 +20,8 @@ def ConstantInfoJSONandDependencies (c : ConstantInfo) : (String × List Name) :
   let deps := getDeclarationDeps c
   let json_content := JSONable.json c
   -- wrap the content in a JSON object with the dependencies
-  let kvpairs := [("tag", JSONable.json Tag.DeclarationProfile), ("dependencies", jsonListAsJSONList deps), ("content", json_content)]
-  (JSONable.json kvpairs, deps)
+  let kvpairs := [("tag", JSONable.json Tag.DeclarationProfile), ("dependencies", jsonListAsList deps), ("content", json_content)]
+  (jsonListAsDict kvpairs, deps)
 
 unsafe
 def dumpJSONDeclarationToFile (folder : String) (c : Name) : M (Unit) := do
