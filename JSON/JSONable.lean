@@ -14,9 +14,10 @@ instance : JSONable String where json s := s
 inductive Tag
 | LevelZero | LevelSucc | LevelMax | LevelIMax | LevelParam
 | BVar | Sort | Const | NatLit | StrLit | App | Lambda | Let | Pi | Proj
-| DeclarationInfo | Axiom | Definition | Theorem | Opaque | Quot | Inductive | Constructor | RecursorRule | Recursor
+| DeclarationInfo | Axiom | Definition | Theorem | Opaque | Quot | Inductive | Constructor | RecursorRule | Recursor | DeclarationProfile
 
 def surroundWithQuotes (s : String) : String := s!"\"{s}\""
+
 instance : JSONable Tag where
   json := fun
     | Tag.LevelZero => surroundWithQuotes "LevelZero"
@@ -44,6 +45,7 @@ instance : JSONable Tag where
     | Tag.Constructor => surroundWithQuotes "Constructor"
     | Tag.RecursorRule => surroundWithQuotes "RecursorRule"
     | Tag.Recursor => surroundWithQuotes "Recursor"
+    | Tag.DeclarationProfile => surroundWithQuotes "DeclarationProfile"
 
 def JSONkvpair (k : String) (v : String) : String :=s!"\"{k}\": {v}"
 #eval JSONkvpair "a" "b"
