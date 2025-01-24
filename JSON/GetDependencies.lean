@@ -7,8 +7,7 @@ def getDepsExpr (e : Expr) : List Name :=
   let depsArray := e.getUsedConstants
   depsArray.toList
 
--- WARNING: the returned list might contain duplicates
-def getDeclarationDeps : ConstantInfo → List Name
+def getDeclarationDepsRaw : ConstantInfo → List Name
   | .axiomInfo val =>
     let typeDeps := getDepsExpr val.type
     typeDeps
@@ -37,3 +36,8 @@ def getDeclarationDeps : ConstantInfo → List Name
     let typeDeps := getDepsExpr val.type
     let ruleDeps := val.rules.map (fun rule => getDepsExpr rule.rhs)
     typeDeps ++ ruleDeps.join
+
+-- same as getDeclarationDepsRaw but removes duplicates
+def getDeclarationDeps (c : ConstantInfo) : List Name :=
+  let deps := getDeclarationDepsRaw c
+  deps.eraseDups
