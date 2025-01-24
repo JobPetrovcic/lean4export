@@ -100,9 +100,9 @@ instance : JSONable Expr where json e := jsonExpr e
 
 instance : JSONable ReducibilityHints where
   json := fun
-    | ReducibilityHints.opaque => "O"
-    | ReducibilityHints.abbrev => "A"
-    | ReducibilityHints.regular n => s!"R {n}"
+    | ReducibilityHints.opaque => surroundWithQuotes "O"
+    | ReducibilityHints.abbrev => surroundWithQuotes "A"
+    | ReducibilityHints.regular n => surroundWithQuotes s!"R {n}"
 
 --instance : Hashable RecursorRule where hash r := hash (r.ctor, r.nfields, r.rhs)
 
