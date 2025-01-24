@@ -6,17 +6,17 @@ class JSONable (α : Type U) where
   json : α → String
 open JSONable
 
+def surroundWithQuotes (s : String) : String := s!"\"{s}\""
+
 instance : JSONable Bool where json b := if b then "True" else "False"
 instance : JSONable Nat where json n := toString n
-instance : JSONable Name where json n := s!"\"{n}\""
+instance : JSONable Name where json n := surroundWithQuotes n.toString
 instance : JSONable String where json s := s
 
 inductive Tag
 | LevelZero | LevelSucc | LevelMax | LevelIMax | LevelParam
 | BVar | Sort | Const | NatLit | StrLit | App | Lambda | Let | Pi | Proj
 | DeclarationInfo | Axiom | Definition | Theorem | Opaque | Quot | Inductive | Constructor | RecursorRule | Recursor | DeclarationProfile
-
-def surroundWithQuotes (s : String) : String := s!"\"{s}\""
 
 instance : JSONable Tag where
   json := fun
@@ -47,7 +47,7 @@ instance : JSONable Tag where
     | Tag.Recursor => surroundWithQuotes "Recursor"
     | Tag.DeclarationProfile => surroundWithQuotes "DeclarationProfile"
 
-def JSONkvpair (k : String) (v : String) : String :=s!"\"{k}\": {v}"
+def JSONkvpair (k : String) (v : String) : String :=s!"{surroundWithQuotes k}: {v}"
 #eval JSONkvpair "a" "b"
 def JSONcommaJoin (xs : List String) : String := xs.foldr (fun acc x => acc ++ ", " ++ x) ""
 #eval JSONcommaJoin ["a", "b", "c"]
