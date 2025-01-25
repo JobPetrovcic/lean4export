@@ -231,7 +231,7 @@ instance : JSONable ConstantVal where
     jsonListAsDict [
       ("tag", json Tag.DeclarationInfo),
       ("ciname", json cv.name),
-      ("args", jsonListAsDict [("level_params", jsonNameListAsLevelParamList cv.levelParams), ("type", json cv.type)])
+      ("args", jsonListAsDict [("lvl_params", jsonNameListAsLevelParamList cv.levelParams), ("type", json cv.type)])
     ]
 
 instance : JSONable AxiomVal where
