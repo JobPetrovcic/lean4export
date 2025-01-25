@@ -170,7 +170,7 @@ partial def jsonExpr (e : Expr) : RM String := do
         [
           ("tag", json Tag.StrLit),
           ("ei", json index),
-          ("args", jsonListAsDict [("val", s)])
+          ("args", jsonListAsDict [("val", surroundWithQuotes s)])
         ]
     | .app f a => do
       let rm_f ← jsonExpr f
