@@ -34,7 +34,11 @@ def ConstantInfoJSONandDependencies (c : ConstantInfo) : (String × List Name) :
   -- wrap the content in a JSON object with the dependencies
   -- the dependencies are a converted using NameToFileFriendlyString
   -- this is done so that when the parser reads the file it nows which file to look for (as opposed to having convert the name to a file friendly name)
-  let kvpairs := [("tag", JSONable.json Tag.DeclarationProfile), ("dependencies", jsonListAsList (deps.map (surroundWithQuotes ∘ NameToFileFriendlyString))), ("content", json_content)]
+  let kvpairs :=
+    [
+      ("dependencies", jsonListAsList (deps.map (surroundWithQuotes ∘ NameToFileFriendlyString))),
+      ("content", json_content)
+    ]
   (jsonListAsDict kvpairs, deps)
 
 unsafe

@@ -10,13 +10,12 @@ def surroundWithQuotes (s : String) : String := s!"\"{s}\""
 
 instance : JSONable Bool where json b := toString b
 instance : JSONable Nat where json n := toString n
-instance : JSONable Name where json n := surroundWithQuotes n.toString
 instance : JSONable String where json s := s
 
 inductive Tag
 | LevelZero | LevelSucc | LevelMax | LevelIMax | LevelParam
 | BVar | Sort | Const | NatLit | StrLit | App | Lambda | Let | Pi | Proj
-| DeclarationInfo | Axiom | Definition | Theorem | Opaque | Quot | Inductive | Constructor | RecursorRule | Recursor | DeclarationProfile | ExprRef
+| DeclarationInfo | Axiom | Definition | Theorem | Opaque | Quot | Inductive | Constructor | RecursorRule | Recursor  | ExprRef | Anonymous | SubName
 
 instance : JSONable Tag where
   json := fun
@@ -45,8 +44,9 @@ instance : JSONable Tag where
     | Tag.Constructor => surroundWithQuotes "Constructor"
     | Tag.RecursorRule => surroundWithQuotes "RecursorRule"
     | Tag.Recursor => surroundWithQuotes "Recursor"
-    | Tag.DeclarationProfile => surroundWithQuotes "DeclarationProfile"
     | Tag.ExprRef => surroundWithQuotes "ExprRef"
+    | Tag.Anonymous => surroundWithQuotes "Anonymous"
+    | Tag.SubName => surroundWithQuotes "SubName"
 
 def JSONkvpair (k : String) (v : String) : String :=s!"{surroundWithQuotes k}: {v}"
 --#eval JSONkvpair "a" "b"
@@ -59,12 +59,31 @@ def jsonListAsList {α : Type} [JSONable α] (xs : List α) : String :=
   "[" ++ JSONcommaJoin (xs.map json) ++ "]"
 def jsonListAsDict [JSONable α] (xs :List α) : String := "{" ++ JSONcommaJoin (xs.map json) ++ "}"
 
+def JSONName (n : Name) : String :=
+  match n with
+  | Name.anonymous =>
+    jsonListAsDict [
+      ("tag", json Tag.Anonymous),
+      ("args", jsonListAsDict ([] : List String))
+    ]
+  | Name.str p s =>
+    jsonListAsDict [
+      ("tag", json Tag.SubName),
+      ("args", jsonListAsDict [("str", surroundWithQuotes s), ("anc", JSONName p)])
+    ]
+  | Name.num p i =>
+    jsonListAsDict [
+      ("tag", json Tag.SubName),
+      ("args", jsonListAsDict [("str", surroundWithQuotes s!"{i}"), ("anc", JSONName p)])
+    ]
+instance : JSONable Name where json n := JSONName n
+
 -- This two functions are used to then more conveniently parse the json objects of constants.
 -- Maybe TODO: instead of exporting as LevelParams, we could export as a list of names. This would be more standard, but requires special handling on the parser side.
 def jsonNameAsLevelParam (n : Name) : String :=
   jsonListAsDict [
     ("tag", json Tag.LevelParam),
-    ("args", jsonListAsDict [("name", json n)])
+    ("args", jsonListAsDict [("pname", json n)])
   ]
 
 def jsonLevel (l : Level) : String :=
@@ -130,7 +149,7 @@ def jsonExpr (e : Expr) : RM String := do
         [
           ("tag", json Tag.Const),
           ("ei", json index),
-          ("args", jsonListAsDict [("name", json n), ("lvl_params", jsonListAsList us)])
+          ("args", jsonListAsDict [("cname", json n), ("lvl_params", jsonListAsList us)])
         ]
     | .lit (.natVal i) =>
       return jsonListAsDict
@@ -211,7 +230,7 @@ instance : JSONable ConstantVal where
   json cv :=
     jsonListAsDict [
       ("tag", json Tag.DeclarationInfo),
-      ("name", json cv.name),
+      ("ciname", json cv.name),
       ("args", jsonListAsDict [("level_params", jsonNameListAsLevelParamList cv.levelParams), ("type", json cv.type)])
     ]
 
