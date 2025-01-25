@@ -16,7 +16,7 @@ instance : JSONable String where json s := s
 inductive Tag
 | LevelZero | LevelSucc | LevelMax | LevelIMax | LevelParam
 | BVar | Sort | Const | NatLit | StrLit | App | Lambda | Let | Pi | Proj
-| DeclarationInfo | Axiom | Definition | Theorem | Opaque | Quot | Inductive | Constructor | RecursorRule | Recursor | DeclarationProfile
+| DeclarationInfo | Axiom | Definition | Theorem | Opaque | Quot | Inductive | Constructor | RecursorRule | Recursor | DeclarationProfile | ExprRef
 
 instance : JSONable Tag where
   json := fun
@@ -46,6 +46,7 @@ instance : JSONable Tag where
     | Tag.RecursorRule => surroundWithQuotes "RecursorRule"
     | Tag.Recursor => surroundWithQuotes "Recursor"
     | Tag.DeclarationProfile => surroundWithQuotes "DeclarationProfile"
+    | Tag.ExprRef => surroundWithQuotes "ExprRef"
 
 def JSONkvpair (k : String) (v : String) : String :=s!"{surroundWithQuotes k}: {v}"
 --#eval JSONkvpair "a" "b"
@@ -71,28 +72,56 @@ def jsonLevel (l : Level) : String :=
 
 instance : JSONable Level where json l := jsonLevel l
 
-def jsonExpr (e : Expr) : String :=
-  -- currently ignoring binder infos
-  match e with
-  | .mdata _ e => jsonExpr e
-  | .fvar .. => panic! "fvars cannot be exported"
-  | .mvar .. => panic! "mvars cannot be exported"
-  | .bvar i => jsonListAsDict [("tag", json Tag.BVar), ("idx", json i)]
-  | .sort l => jsonListAsDict [("tag", json Tag.Sort), ("level", json l)]
-  | .const n us => jsonListAsDict [("tag", json Tag.Const), ("name", json n), ("us", jsonListAsList us)]
-  | .lit (.natVal i) => jsonListAsDict [("tag", json Tag.NatLit), ("val", json i)]
-  | .lit (.strVal s) => jsonListAsDict [("tag", json Tag.StrLit), ("val", s)]
-  | .app f a => jsonListAsDict [("tag", json Tag.App), ("fn", jsonExpr f), ("arg", jsonExpr a)]
-  | .lam n d b _bi =>
-      --[("tag", json Tag.Lambda), ("info", json bi), ("name", json n), ("domain", json d), ("body", json b)]
-      jsonListAsDict [("tag", json Tag.Lambda), ("bname", json n), ("arg_type", jsonExpr d), ("body", jsonExpr b)]
-  | .letE n d v b _ =>
-      jsonListAsDict [("tag", json Tag.Let), ("bname", json n), ("arg_type", jsonExpr d), ("val", jsonExpr v), ("body", jsonExpr b)]
-  | .forallE n d b _bi =>
-      jsonListAsDict [("tag", json Tag.Pi), ("bname", json n), ("arg_type", jsonExpr d), ("body_type", jsonExpr b)]
-  | .proj s i e2 => jsonListAsDict [("tag", json Tag.Proj), ("struct", json s), ("idx", json i), ("expr", jsonExpr e2)]
+structure Repeated where
+  repeated : HashMap Expr Nat := {}
 
-instance : JSONable Expr where json e := jsonExpr e
+abbrev RM := StateM Repeated
+
+def jsonExpr (e : Expr) : RM String := do
+  let st ← get
+  if st.repeated.contains e then
+    let index := st.repeated.find! e
+    return jsonListAsDict [("tag", json Tag.ExprRef), ("index", json index)]
+  else
+
+  let rsize := st.repeated.size
+  -- insert the current expression into the hashmap
+  modify fun st => { repeated := st.repeated.insert e rsize }
+  let json_str : RM String :=
+    match e with -- ignoring binder infos
+    | .mdata _ e => jsonExpr e
+    | .fvar .. => panic! "fvars cannot be exported"
+    | .mvar .. => panic! "mvars cannot be exported"
+    | .bvar i => return jsonListAsDict [("tag", json Tag.BVar), ("idx", json i)]
+    | .sort l => return jsonListAsDict [("tag", json Tag.Sort), ("level", json l)]
+    | .const n us => return jsonListAsDict [("tag", json Tag.Const), ("name", json n), ("us", jsonListAsList us)]
+    | .lit (.natVal i) => return jsonListAsDict [("tag", json Tag.NatLit), ("val", json i)]
+    | .lit (.strVal s) => return jsonListAsDict [("tag", json Tag.StrLit), ("val", s)]
+    | .app f a => do
+      let rm_f ← jsonExpr f
+      let rm_a ← jsonExpr a
+      return jsonListAsDict [("tag", json Tag.App), ("fn", rm_f), ("arg", rm_a)]
+    | .lam n d b _bi => do
+      let rm_d ← jsonExpr d
+      let rm_b ← jsonExpr b
+
+        -- [("tag", json Tag.Lambda), ("info", json bi), ("name", json n), ("domain", rm_d), ("body", rm_b)]
+      return jsonListAsDict [("tag", json Tag.Lambda), ("bname", json n), ("arg_type", rm_d), ("body", rm_b)]
+    | .letE n d v b _ => do
+      let rm_d ← jsonExpr d
+      let rm_v ← jsonExpr v
+      let rm_b ← jsonExpr b
+      return jsonListAsDict [("tag", json Tag.Let), ("bname", json n), ("arg_type", rm_d), ("val", rm_v), ("body", rm_b)]
+    | .forallE n d b _bi => do
+      let rm_d ← jsonExpr d
+      let rm_b ← jsonExpr b
+      return jsonListAsDict [("tag", json Tag.Pi), ("bname", json n), ("arg_type", rm_d), ("body_type", rm_b)]
+    | .proj sn i e => do
+      let rm_e ← jsonExpr e
+      return jsonListAsDict [("tag", json Tag.Proj), ("sname", json sn), ("index", json i), ("expr", rm_e)]
+  json_str
+
+instance : JSONable Expr where json e := (jsonExpr e).run' {} -- run' is used to extract the first element of the tuple
 
 instance : JSONable ReducibilityHints where
   json := fun
@@ -109,7 +138,7 @@ def jsonNameListAsLevelParamList (ns : List Name) : String := jsonListAsList (ns
 
 instance : JSONable ConstantVal where
   json cv :=
-    jsonListAsDict [("tag", json Tag.DeclarationInfo), ("name", json cv.name), ("level_params", jsonNameListAsLevelParamList cv.levelParams ), ("type", jsonExpr cv.type)]
+    jsonListAsDict [("tag", json Tag.DeclarationInfo), ("name", json cv.name), ("level_params", jsonNameListAsLevelParamList cv.levelParams ), ("type", json cv.type)]
 
 instance : JSONable AxiomVal where
   json ai := jsonListAsDict [("tag", json Tag.Axiom), ("info", json ai.toConstantVal)]
@@ -118,15 +147,15 @@ instance : JSONable DefinitionVal where
   json di :=
     if di.safety != .safe then unreachable!
     else
-      jsonListAsDict [("tag", json Tag.Definition), ("info", json di.toConstantVal), ("value", jsonExpr di.value), ("hints", json di.hints)]
+      jsonListAsDict [("tag", json Tag.Definition), ("info", json di.toConstantVal), ("value", json di.value), ("hints", json di.hints)]
 
 instance : JSONable TheoremVal where
   json ti :=
-    jsonListAsDict [("tag", json Tag.Theorem), ("info", json ti.toConstantVal), ("value", jsonExpr ti.value)]
+    jsonListAsDict [("tag", json Tag.Theorem), ("info", json ti.toConstantVal), ("value", json ti.value)]
 
 instance : JSONable OpaqueVal where
   json oi :=
-    jsonListAsDict [("tag", json Tag.Opaque), ("info", json oi.toConstantVal), ("value", jsonExpr oi.value)]
+    jsonListAsDict [("tag", json Tag.Opaque), ("info", json oi.toConstantVal), ("value", json oi.value)]
 
 instance : JSONable QuotVal where
   json qi :=
@@ -142,7 +171,7 @@ instance : JSONable ConstructorVal where
 
 instance : JSONable RecursorRule where
   json rr :=
-    jsonListAsDict [("tag", json Tag.RecursorRule), ("constructor", json rr.ctor), ("num_fields", json rr.nfields), ("value", jsonExpr rr.rhs)]
+    jsonListAsDict [("tag", json Tag.RecursorRule), ("constructor", json rr.ctor), ("num_fields", json rr.nfields), ("value", json rr.rhs)]
 
 instance : JSONable RecursorVal where
   json ri :=

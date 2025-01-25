@@ -1,12 +1,13 @@
 import Lean
 open Lean
 
--- a function that takes a ConstantInfo and returns a list of the names of the constants it depends on
+
 
 def getDepsExpr (e : Expr) : List Name :=
   let depsArray := e.getUsedConstants
   depsArray.toList
 
+-- a function that takes a ConstantInfo and returns a list of the names of the constants it depends on
 def getDeclarationDepsRaw : ConstantInfo → List Name
   | .axiomInfo val =>
     let typeDeps := getDepsExpr val.type
