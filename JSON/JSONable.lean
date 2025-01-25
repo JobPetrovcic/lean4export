@@ -224,9 +224,19 @@ instance : JSONable Expr where json e := (jsonExpr e).run' {}
 
 instance : JSONable ReducibilityHints where
   json := fun
-    | ReducibilityHints.opaque => surroundWithQuotes "O"
-    | ReducibilityHints.abbrev => surroundWithQuotes "A"
-    | ReducibilityHints.regular n => surroundWithQuotes s!"R {n}"
+    | ReducibilityHints.opaque => jsonListAsDict [
+        ("tag", json Tag.Opaque),
+        ("args", jsonListAsDict ([] : List String))
+      ]
+    | ReducibilityHints.abbrev => jsonListAsDict [
+        ("tag", json Tag.Quot),
+        ("args", jsonListAsDict ([] : List String))
+      ]
+    | ReducibilityHints.regular n =>
+      jsonListAsDict [
+        ("tag", json Tag.Inductive),
+        ("args", jsonListAsDict [("depth", s!"{n}")])
+      ]
 
 def jsonNameListAsLevelParamList (ns : List Name) : String := jsonListAsList (ns.map jsonNameAsLevelParam)
 
