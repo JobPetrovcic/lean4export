@@ -228,7 +228,7 @@ instance : JSONable Expr where json e := (jsonExpr e).run' {}
 instance : JSONable ReducibilityHints where
   json := fun
     | ReducibilityHints.opaque => jsonListAsDict [
-        ("tag", json Tag.Opaque),
+        ("tag", json Tag.OpaqueHint),
         ("args", jsonListAsDict ([] : List String))
       ]
     | ReducibilityHints.abbrev => jsonListAsDict [
