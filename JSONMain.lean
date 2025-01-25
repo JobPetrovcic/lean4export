@@ -43,5 +43,10 @@ def main (args : List String) : IO Unit := do
     | [] => env.constants.toList.map Prod.fst |>.filter (!·.isInternal)
     | cs => cs.map fun c => Syntax.decodeNameLit ("`" ++ c) |>.get!
     M.run env do
+      let n_consts := constants.length
+      let mut i := 0
       for c in constants do
+        if i % 50000 == 0 then
+          IO.println s!"{i}/{n_consts}"
         let _ ← dumpJSONDeclarationToFile outDir c
+        i := i + 1
