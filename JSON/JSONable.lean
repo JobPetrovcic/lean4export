@@ -59,15 +59,34 @@ def jsonListAsList {α : Type} [JSONable α] (xs : List α) : String :=
   "[" ++ JSONcommaJoin (xs.map json) ++ "]"
 def jsonListAsDict [JSONable α] (xs :List α) : String := "{" ++ JSONcommaJoin (xs.map json) ++ "}"
 
+-- This two functions are used to then more conveniently parse the json objects of constants.
+-- Maybe TODO: instead of exporting as LevelParams, we could export as a list of names. This would be more standard, but requires special handling on the parser side.
+def jsonNameAsLevelParam (n : Name) : String :=
+  jsonListAsDict [
+    ("tag", json Tag.LevelParam),
+    ("args", jsonListAsDict [("name", json n)])
+  ]
+
 def jsonLevel (l : Level) : String :=
-  let kvpairs := match l with
-  | Level.zero => [("tag", json Tag.LevelZero)]
+  match l with
+  | Level.zero => jsonListAsDict [
+    ("tag", json Tag.LevelZero),
+    ("args", jsonListAsDict ([] : List String))
+  ]
   | Level.mvar _ => panic! "mvars cannot be exported"
-  | Level.succ l => [("tag", json Tag.LevelSucc), ("anc", (jsonLevel l))]
-  | Level.max l1 l2 => [("tag", json Tag.LevelMax), ("lhs", (jsonLevel l1)), ("rhs", (jsonLevel l2))]
-  | Level.imax l1 l2 => [("tag", json Tag.LevelIMax), ("lhs", (jsonLevel l1)), ("rhs", (jsonLevel l2))]
-  | Level.param n => [("tag", json Tag.LevelParam), ("name", (json n))]
-  jsonListAsDict kvpairs
+  | Level.succ l => jsonListAsDict [
+      ("tag", json Tag.LevelSucc),
+      ("args", jsonListAsDict [("anc", (jsonLevel l))]),
+    ]
+  | Level.max l1 l2 => jsonListAsDict [
+      ("tag", json Tag.LevelMax),
+      ("args", jsonListAsDict [("lhs", (jsonLevel l1)), ("rhs", (jsonLevel l2))])
+    ]
+  | Level.imax l1 l2 => jsonListAsDict [
+      ("tag", json Tag.LevelIMax),
+      ("args", jsonListAsDict [("lhs", (jsonLevel l1)), ("rhs", (jsonLevel l2))])
+    ]
+  | Level.param n => jsonNameAsLevelParam n
 --#eval jsonLevel (mkLevelSucc (mkLevelParam `l))
 
 instance : JSONable Level where json l := jsonLevel l
@@ -92,33 +111,88 @@ def jsonExpr (e : Expr) : RM String := do
     | .mdata _ e => jsonExpr e
     | .fvar .. => panic! "fvars cannot be exported"
     | .mvar .. => panic! "mvars cannot be exported"
-    | .bvar i => return jsonListAsDict [("tag", json Tag.BVar), ("ei", json index), ("db_index", json i)]
-    | .sort l => return jsonListAsDict [("tag", json Tag.Sort), ("ei", json index), ("level", json l)]
-    | .const n us => return jsonListAsDict [("tag", json Tag.Const), ("ei", json index), ("name", json n), ("us", jsonListAsList us)]
-    | .lit (.natVal i) => return jsonListAsDict [("tag", json Tag.NatLit), ("ei", json index), ("val", json i)]
-    | .lit (.strVal s) => return jsonListAsDict [("tag", json Tag.StrLit), ("ei", json index), ("val", s)]
+    | .bvar i =>
+      return jsonListAsDict
+        [
+          ("tag", json Tag.BVar),
+          ("ei", json index),
+          ("args", jsonListAsDict [("db_index", json i)])
+        ]
+    | .sort l =>
+      return jsonListAsDict
+        [
+          ("tag", json Tag.Sort),
+          ("ei", json index),
+          ("args", jsonListAsDict [("level", json l)])
+        ]
+    | .const n us =>
+      return jsonListAsDict
+        [
+          ("tag", json Tag.Const),
+          ("ei", json index),
+          ("args", jsonListAsDict [("name", json n), ("lvl_params", jsonListAsList us)])
+        ]
+    | .lit (.natVal i) =>
+      return jsonListAsDict
+        [
+          ("tag", json Tag.NatLit),
+          ("ei", json index),
+          ("args", jsonListAsDict [("val", json i)])
+        ]
+    | .lit (.strVal s) =>
+      return jsonListAsDict
+        [
+          ("tag", json Tag.StrLit),
+          ("ei", json index),
+          ("args", jsonListAsDict [("val", s)])
+        ]
     | .app f a => do
       let rm_f ← jsonExpr f
       let rm_a ← jsonExpr a
-      return jsonListAsDict [("tag", json Tag.App), ("ei", json index), ("fn", rm_f), ("arg", rm_a)]
+      return jsonListAsDict
+          [
+            ("tag", json Tag.App),
+            ("ei", json index),
+            ("args", jsonListAsDict [("fn", rm_f), ("arg", rm_a)])
+          ]
     | .lam n d b _bi => do
       let rm_d ← jsonExpr d
       let rm_b ← jsonExpr b
 
         -- [("tag", json Tag.Lambda), ("info", json bi), ("name", json n), ("domain", rm_d), ("body", rm_b)]
-      return jsonListAsDict [("tag", json Tag.Lambda), ("ei", json index), ("bname", json n), ("arg_type", rm_d), ("body", rm_b)]
+      return jsonListAsDict
+        [
+          ("tag", json Tag.Lambda),
+          ("ei", json index),
+          ("args", jsonListAsDict [("bname", json n), ("arg_type", rm_d), ("body", rm_b)])
+        ]
     | .letE n d v b _ => do
       let rm_d ← jsonExpr d
       let rm_v ← jsonExpr v
       let rm_b ← jsonExpr b
-      return jsonListAsDict [("tag", json Tag.Let), ("ei", json index), ("bname", json n), ("arg_type", rm_d), ("val", rm_v), ("body", rm_b)]
+      return jsonListAsDict
+        [
+          ("tag", json Tag.Let),
+          ("ei", json index),
+          ("args", jsonListAsDict [("bname", json n), ("arg_type", rm_d), ("val", rm_v), ("body", rm_b)])
+        ]
     | .forallE n d b _bi => do
       let rm_d ← jsonExpr d
       let rm_b ← jsonExpr b
-      return jsonListAsDict [("tag", json Tag.Pi), ("ei", json index), ("bname", json n), ("arg_type", rm_d), ("body_type", rm_b)]
+      return jsonListAsDict
+        [
+          ("tag", json Tag.Pi),
+          ("ei", json index),
+          ("args", jsonListAsDict [("bname", json n), ("arg_type", rm_d), ("body_type", rm_b)])
+        ]
     | .proj sn i e => do
       let rm_e ← jsonExpr e
-      return jsonListAsDict [("tag", json Tag.Proj), ("ei", json index), ("sname", json sn), ("index", json i), ("expr", rm_e)]
+      return jsonListAsDict
+        [
+          ("tag", json Tag.Proj),
+          ("ei", json index),
+          ("args", jsonListAsDict [("sname", json sn), ("index", json i), ("expr", rm_e)])
+        ]
   json_str
 
 -- To extract an expression we use a hashmap to keep track of the expressions that repeat.
@@ -131,54 +205,79 @@ instance : JSONable ReducibilityHints where
     | ReducibilityHints.abbrev => surroundWithQuotes "A"
     | ReducibilityHints.regular n => surroundWithQuotes s!"R {n}"
 
--- This two functions are used to then more conveniently parse the json objects of constants.
--- Maybe TODO: instead of exporting as LevelParams, we could export as a list of names. This would be more standard, but requires special handling on the parser side.
-def jsonNameAsLevelParam (n : Name) : String :=
-  jsonListAsDict [("tag", json Tag.LevelParam), ("name", json n)]
-
 def jsonNameListAsLevelParamList (ns : List Name) : String := jsonListAsList (ns.map jsonNameAsLevelParam)
 
 instance : JSONable ConstantVal where
   json cv :=
-    jsonListAsDict [("tag", json Tag.DeclarationInfo), ("name", json cv.name), ("level_params", jsonNameListAsLevelParamList cv.levelParams ), ("type", json cv.type)]
+    jsonListAsDict [
+      ("tag", json Tag.DeclarationInfo),
+      ("name", json cv.name),
+      ("args", jsonListAsDict [("level_params", jsonNameListAsLevelParamList cv.levelParams), ("type", json cv.type)])
+    ]
 
 instance : JSONable AxiomVal where
-  json ai := jsonListAsDict [("tag", json Tag.Axiom), ("info", json ai.toConstantVal)]
+  json ai := jsonListAsDict [
+    ("tag", json Tag.Axiom),
+    ("args", jsonListAsDict [("info", json ai.toConstantVal)])
+  ]
 
 instance : JSONable DefinitionVal where
   json di :=
     if di.safety != .safe then unreachable!
     else
-      jsonListAsDict [("tag", json Tag.Definition), ("info", json di.toConstantVal), ("value", json di.value), ("hints", json di.hints)]
+      jsonListAsDict [
+        ("tag", json Tag.Definition),
+        ("args", jsonListAsDict [("info", json di.toConstantVal), ("value", json di.value), ("hints", json di.hints)])
+      ]
 
 instance : JSONable TheoremVal where
   json ti :=
-    jsonListAsDict [("tag", json Tag.Theorem), ("info", json ti.toConstantVal), ("value", json ti.value)]
+    jsonListAsDict [
+      ("tag", json Tag.Theorem),
+      ("args", jsonListAsDict [("info", json ti.toConstantVal), ("value", json ti.value)])
+    ]
 
 instance : JSONable OpaqueVal where
   json oi :=
-    jsonListAsDict [("tag", json Tag.Opaque), ("info", json oi.toConstantVal), ("value", json oi.value)]
+    jsonListAsDict [
+      ("tag", json Tag.Opaque),
+      ("args", jsonListAsDict [("info", json oi.toConstantVal), ("value", json oi.value)])
+    ]
 
 instance : JSONable QuotVal where
   json qi :=
-    jsonListAsDict [("tag", json Tag.Quot), ("info", json qi.toConstantVal)]
+    jsonListAsDict [
+      ("tag", json Tag.Quot),
+      ("args", jsonListAsDict [("info", json qi.toConstantVal)])
+    ]
 
 instance : JSONable InductiveVal where
   json ii :=
-    jsonListAsDict [("tag", json Tag.Inductive), ("info", json ii.toConstantVal), ("is_recursive", json ii.isRec), ("num_params", json ii.numParams), ("num_indices", json ii.numIndices), ("inductive_names", jsonListAsList (ii.all.map json)), ("constructor_names", jsonListAsList ii.ctors)]
+    jsonListAsDict [
+      ("tag", json Tag.Inductive),
+      ("args", jsonListAsDict [("info", json ii.toConstantVal), ("is_recursive", json ii.isRec), ("num_params", json ii.numParams), ("num_indices", json ii.numIndices), ("inductive_names", jsonListAsList (ii.all.map json)), ("constructor_names", jsonListAsList ii.ctors)])
+    ]
 
 instance : JSONable ConstructorVal where
   json ci :=
-   jsonListAsDict [("tag", json Tag.Constructor), ("info", json ci.toConstantVal), ("inductive_name", json ci.induct), ("c_index", json ci.cidx), ("num_params", json ci.numParams), ("num_fields", json ci.numFields)]
+   jsonListAsDict [("tag", json Tag.Constructor),
+    ("args", jsonListAsDict [("info", json ci.toConstantVal), ("inductive_name", json ci.induct), ("c_index", json ci.cidx), ("num_params", json ci.numParams), ("num_fields", json ci.numFields)])
+  ]
 
 instance : JSONable RecursorRule where
   json rr :=
-    jsonListAsDict [("tag", json Tag.RecursorRule), ("constructor", json rr.ctor), ("num_fields", json rr.nfields), ("value", json rr.rhs)]
+    jsonListAsDict [
+      ("tag", json Tag.RecursorRule),
+      ("args", jsonListAsDict [("constructor", json rr.ctor), ("num_fields", json rr.nfields), ("value", json rr.rhs)]),
+    ]
 
 instance : JSONable RecursorVal where
   json ri :=
     -- what about ri.all?
-    jsonListAsDict [("tag", json Tag.Recursor), ("info", json ri.toConstantVal), ("num_params", json ri.numParams), ("num_indices", json ri.numIndices), ("num_motives", json ri.numMotives), ("num_minors", json ri.numMinors), ("recursor_rules", jsonListAsList ri.rules), ("isK", json ri.k)]
+    jsonListAsDict [
+      ("tag", json Tag.Recursor),
+      ("args", jsonListAsDict [("info", json ri.toConstantVal), ("num_params", json ri.numParams), ("num_indices", json ri.numIndices), ("num_motives", json ri.numMotives), ("num_minors", json ri.numMinors), ("recursor_rules", jsonListAsList ri.rules), ("isK", json ri.k)])
+    ]
 
 instance : JSONable ConstantInfo where
   json ci :=
