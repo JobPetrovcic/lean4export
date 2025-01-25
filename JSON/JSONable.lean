@@ -230,8 +230,7 @@ instance : JSONable ConstantVal where
   json cv :=
     jsonListAsDict [
       ("tag", json Tag.DeclarationInfo),
-      ("ciname", json cv.name),
-      ("args", jsonListAsDict [("lvl_params", jsonNameListAsLevelParamList cv.levelParams), ("type", json cv.type)])
+      ("args", jsonListAsDict [("ciname", json cv.name),("lvl_params", jsonNameListAsLevelParamList cv.levelParams), ("type", json cv.type)])
     ]
 
 instance : JSONable AxiomVal where
