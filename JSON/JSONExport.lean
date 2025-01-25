@@ -16,11 +16,25 @@ def M.run (env : Environment) (act : M α) : IO α :=
     ReaderT.run (r := { env }) do
       act
 
+-- The character '/' is not allowed in file names so we replace it with ' '
+-- Names don't contain spaces so this should be an injective function
+unsafe
+def NameToFileFriendlyString (n : Name) : String :=
+  -- if the name contains a '/' replace it with a space
+  let sn := n.toString
+  if sn.contains ' ' then
+    panic! "Name contains a space"
+  else
+    sn.replace "/" " "
+
+unsafe
 def ConstantInfoJSONandDependencies (c : ConstantInfo) : (String × List Name) :=
   let deps := getDeclarationDeps c
   let json_content := JSONable.json c
   -- wrap the content in a JSON object with the dependencies
-  let kvpairs := [("tag", JSONable.json Tag.DeclarationProfile), ("dependencies", jsonListAsList deps), ("content", json_content)]
+  -- the dependencies are a converted using NameToFileFriendlyString
+  -- this is done so that when the parser reads the file it nows which file to look for (as opposed to having convert the name to a file friendly name)
+  let kvpairs := [("tag", JSONable.json Tag.DeclarationProfile), ("dependencies", jsonListAsList (deps.map NameToFileFriendlyString)), ("content", json_content)]
   (jsonListAsDict kvpairs, deps)
 
 unsafe
@@ -36,7 +50,7 @@ def dumpJSONDeclarationToFile (folder : String) (c : Name) : M (Unit) := do
     if decl.isUnsafe then return Unit.unit
     else
       let (json, deps) := ConstantInfoJSONandDependencies decl
-      let _ ← dumpStringToFile (folder ++ "/" ++ c.toString ++ ".json") json
+      let _ ← dumpStringToFile (folder ++ "/" ++ (NameToFileFriendlyString c) ++ ".json") json
       -- dump the dependencies
       for dep in deps do
         let _ ← dumpJSONDeclarationToFile folder dep

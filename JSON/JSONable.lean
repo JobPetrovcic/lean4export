@@ -73,20 +73,20 @@ def jsonLevel (l : Level) : String :=
 instance : JSONable Level where json l := jsonLevel l
 
 structure Repeated where
-  repeated : HashMap Expr Nat := {}
+  expr2index : HashMap Expr Nat := {}
 
 abbrev RM := StateM Repeated
 
 def jsonExpr (e : Expr) : RM String := do
   let st ← get
-  if st.repeated.contains e then
-    let index := st.repeated.find! e
+  if st.expr2index.contains e then
+    let index := st.expr2index.find! e
     return jsonListAsDict [("tag", json Tag.ExprRef), ("ei", json index)]
   else
 
-  let index := st.repeated.size
+  let index := st.expr2index.size
   -- insert the current expression into the hashmap
-  modify fun st => { repeated := st.repeated.insert e index }
+  modify fun st => { expr2index := st.expr2index.insert e index }
   let json_str : RM String :=
     match e with -- ignoring binder infos
     | .mdata _ e => jsonExpr e
@@ -121,7 +121,9 @@ def jsonExpr (e : Expr) : RM String := do
       return jsonListAsDict [("tag", json Tag.Proj), ("ei", json index), ("sname", json sn), ("index", json i), ("expr", rm_e)]
   json_str
 
-instance : JSONable Expr where json e := (jsonExpr e).run' {} -- run' is used to extract the first element of the tuple
+-- To extract an expression we use a hashmap to keep track of the expressions that repeat.
+-- We do this for each expression separately: if we did this for all expressions at once, the hashmap would be too large, which leads to very slow performance and high memory usage.
+instance : JSONable Expr where json e := (jsonExpr e).run' {}
 
 instance : JSONable ReducibilityHints where
   json := fun
@@ -129,8 +131,8 @@ instance : JSONable ReducibilityHints where
     | ReducibilityHints.abbrev => surroundWithQuotes "A"
     | ReducibilityHints.regular n => surroundWithQuotes s!"R {n}"
 
---instance : Hashable RecursorRule where hash r := hash (r.ctor, r.nfields, r.rhs)
-
+-- This two functions are used to then more conveniently parse the json objects of constants.
+-- Maybe TODO: instead of exporting as LevelParams, we could export as a list of names. This would be more standard, but requires special handling on the parser side.
 def jsonNameAsLevelParam (n : Name) : String :=
   jsonListAsDict [("tag", json Tag.LevelParam), ("name", json n)]
 
