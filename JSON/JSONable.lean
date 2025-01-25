@@ -81,44 +81,44 @@ def jsonExpr (e : Expr) : RM String := do
   let st ← get
   if st.repeated.contains e then
     let index := st.repeated.find! e
-    return jsonListAsDict [("tag", json Tag.ExprRef), ("index", json index)]
+    return jsonListAsDict [("tag", json Tag.ExprRef), ("ei", json index)]
   else
 
-  let rsize := st.repeated.size
+  let index := st.repeated.size
   -- insert the current expression into the hashmap
-  modify fun st => { repeated := st.repeated.insert e rsize }
+  modify fun st => { repeated := st.repeated.insert e index }
   let json_str : RM String :=
     match e with -- ignoring binder infos
     | .mdata _ e => jsonExpr e
     | .fvar .. => panic! "fvars cannot be exported"
     | .mvar .. => panic! "mvars cannot be exported"
-    | .bvar i => return jsonListAsDict [("tag", json Tag.BVar), ("idx", json i)]
-    | .sort l => return jsonListAsDict [("tag", json Tag.Sort), ("level", json l)]
-    | .const n us => return jsonListAsDict [("tag", json Tag.Const), ("name", json n), ("us", jsonListAsList us)]
-    | .lit (.natVal i) => return jsonListAsDict [("tag", json Tag.NatLit), ("val", json i)]
-    | .lit (.strVal s) => return jsonListAsDict [("tag", json Tag.StrLit), ("val", s)]
+    | .bvar i => return jsonListAsDict [("tag", json Tag.BVar), ("ei", json index), ("db_index", json i)]
+    | .sort l => return jsonListAsDict [("tag", json Tag.Sort), ("ei", json index), ("level", json l)]
+    | .const n us => return jsonListAsDict [("tag", json Tag.Const), ("ei", json index), ("name", json n), ("us", jsonListAsList us)]
+    | .lit (.natVal i) => return jsonListAsDict [("tag", json Tag.NatLit), ("ei", json index), ("val", json i)]
+    | .lit (.strVal s) => return jsonListAsDict [("tag", json Tag.StrLit), ("ei", json index), ("val", s)]
     | .app f a => do
       let rm_f ← jsonExpr f
       let rm_a ← jsonExpr a
-      return jsonListAsDict [("tag", json Tag.App), ("fn", rm_f), ("arg", rm_a)]
+      return jsonListAsDict [("tag", json Tag.App), ("ei", json index), ("fn", rm_f), ("arg", rm_a)]
     | .lam n d b _bi => do
       let rm_d ← jsonExpr d
       let rm_b ← jsonExpr b
 
         -- [("tag", json Tag.Lambda), ("info", json bi), ("name", json n), ("domain", rm_d), ("body", rm_b)]
-      return jsonListAsDict [("tag", json Tag.Lambda), ("bname", json n), ("arg_type", rm_d), ("body", rm_b)]
+      return jsonListAsDict [("tag", json Tag.Lambda), ("ei", json index), ("bname", json n), ("arg_type", rm_d), ("body", rm_b)]
     | .letE n d v b _ => do
       let rm_d ← jsonExpr d
       let rm_v ← jsonExpr v
       let rm_b ← jsonExpr b
-      return jsonListAsDict [("tag", json Tag.Let), ("bname", json n), ("arg_type", rm_d), ("val", rm_v), ("body", rm_b)]
+      return jsonListAsDict [("tag", json Tag.Let), ("ei", json index), ("bname", json n), ("arg_type", rm_d), ("val", rm_v), ("body", rm_b)]
     | .forallE n d b _bi => do
       let rm_d ← jsonExpr d
       let rm_b ← jsonExpr b
-      return jsonListAsDict [("tag", json Tag.Pi), ("bname", json n), ("arg_type", rm_d), ("body_type", rm_b)]
+      return jsonListAsDict [("tag", json Tag.Pi), ("ei", json index), ("bname", json n), ("arg_type", rm_d), ("body_type", rm_b)]
     | .proj sn i e => do
       let rm_e ← jsonExpr e
-      return jsonListAsDict [("tag", json Tag.Proj), ("sname", json sn), ("index", json i), ("expr", rm_e)]
+      return jsonListAsDict [("tag", json Tag.Proj), ("ei", json index), ("sname", json sn), ("index", json i), ("expr", rm_e)]
   json_str
 
 instance : JSONable Expr where json e := (jsonExpr e).run' {} -- run' is used to extract the first element of the tuple
