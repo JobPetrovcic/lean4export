@@ -115,8 +115,12 @@ structure Repeated where
 
 abbrev RM := StateM Repeated
 
-def jsonExpr (e : Expr) : RM String := do
+partial def jsonExpr (e : Expr) : RM String := do
   let st ← get
+  -- handle mdata before assigning an index
+  if let Expr.mdata _ e := e then
+    jsonExpr e
+  else
   if st.expr2index.contains e then
     let index := st.expr2index.find! e
     return jsonListAsDict [("tag", json Tag.ExprRef), ("ei", json index)]
@@ -127,7 +131,7 @@ def jsonExpr (e : Expr) : RM String := do
   modify fun st => { expr2index := st.expr2index.insert e index }
   let json_str : RM String :=
     match e with -- ignoring binder infos
-    | .mdata _ e => jsonExpr e
+    | .mdata _ e => panic! "mdata should have been handled"
     | .fvar .. => panic! "fvars cannot be exported"
     | .mvar .. => panic! "mvars cannot be exported"
     | .bvar i =>
