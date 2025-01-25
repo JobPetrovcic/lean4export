@@ -15,7 +15,7 @@ instance : JSONable String where json s := s
 inductive Tag
 | LevelZero | LevelSucc | LevelMax | LevelIMax | LevelParam
 | BVar | Sort | Const | NatLit | StrLit | App | Lambda | Let | Pi | Proj
-| DeclarationInfo | Axiom | Definition | Theorem | Opaque | Quot | Inductive | Constructor | RecursorRule | Recursor  | ExprRef | Anonymous | SubName
+| DeclarationInfo | Axiom | Definition | Theorem | Opaque | Quot | Inductive | Constructor | RecursorRule | Recursor  | ExprRef | Anonymous | SubName | OpaqueHint | Abbrev | Regular
 
 instance : JSONable Tag where
   json := fun
@@ -47,6 +47,9 @@ instance : JSONable Tag where
     | Tag.ExprRef => surroundWithQuotes "ExprRef"
     | Tag.Anonymous => surroundWithQuotes "Anonymous"
     | Tag.SubName => surroundWithQuotes "SubName"
+    | Tag.OpaqueHint => surroundWithQuotes "OpaqueHint"
+    | Tag.Abbrev => surroundWithQuotes "Abbrev"
+    | Tag.Regular => surroundWithQuotes "Regular"
 
 def JSONkvpair (k : String) (v : String) : String :=s!"{surroundWithQuotes k}: {v}"
 --#eval JSONkvpair "a" "b"
@@ -229,12 +232,12 @@ instance : JSONable ReducibilityHints where
         ("args", jsonListAsDict ([] : List String))
       ]
     | ReducibilityHints.abbrev => jsonListAsDict [
-        ("tag", json Tag.Quot),
+        ("tag", json Tag.Abbrev),
         ("args", jsonListAsDict ([] : List String))
       ]
     | ReducibilityHints.regular n =>
       jsonListAsDict [
-        ("tag", json Tag.Inductive),
+        ("tag", json Tag.Regular),
         ("args", jsonListAsDict [("depth", s!"{n}")])
       ]
 
