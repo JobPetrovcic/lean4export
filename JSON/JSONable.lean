@@ -249,7 +249,7 @@ instance : JSONable DefinitionVal where
     else
       jsonListAsDict [
         ("tag", json Tag.Definition),
-        ("args", jsonListAsDict [("info", json di.toConstantVal), ("value", json di.value), ("hints", json di.hints)])
+        ("args", jsonListAsDict [("info", json di.toConstantVal), ("value", json di.value), ("hint", json di.hints)])
       ]
 
 instance : JSONable TheoremVal where
