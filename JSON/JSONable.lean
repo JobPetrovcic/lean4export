@@ -10,7 +10,8 @@ def surroundWithQuotes (s : String) : String := s!"\"{s}\""
 
 instance : JSONable Bool where json b := toString b
 instance : JSONable Nat where json n := toString n
-instance : JSONable String where json s := s
+instance : JSONable String where json s := s.replace "\n" "\\n"
+#check "a".replace "\n" "\\n"
 
 inductive Tag
 | LevelZero | LevelSucc | LevelMax | LevelIMax | LevelParam
