@@ -10,8 +10,7 @@ def surroundWithQuotes (s : String) : String := s!"\"{s}\""
 
 instance : JSONable Bool where json b := toString b
 instance : JSONable Nat where json n := toString n
-instance : JSONable String where json s := s.replace "\n" "\\n"
-#check "a".replace "\n" "\\n"
+instance : JSONable String where json s := s
 
 inductive Tag
 | LevelZero | LevelSucc | LevelMax | LevelIMax | LevelParam
@@ -171,7 +170,7 @@ partial def jsonExpr (e : Expr) : RM String := do
         [
           ("tag", json Tag.StrLit),
           ("ei", json index),
-          ("args", jsonListAsDict [("val", surroundWithQuotes s)])
+          ("args", jsonListAsDict [("val", surroundWithQuotes (s.replace "\n" "\\n"))])
         ]
     | .app f a => do
       let rm_f ← jsonExpr f
