@@ -118,6 +118,19 @@ structure Repeated where
 
 abbrev RM := StateM Repeated
 
+-- "\r","\n","\t","'","\"","\\","\t"
+def handleSpecialChar (s : String) : String :=
+  s.foldl (fun acc c =>
+    match c with
+    | '\r' => acc ++ "\\r"
+    | '\n' => acc ++ "\\n"
+    | '\t' => acc ++ "\\t"
+    | '\'' => acc ++ "\\'"
+    | '\"' => acc ++ "\\\""
+    | '\\' => acc ++ "\\\\"
+    | _ => acc.push c
+  ) ""
+
 partial def jsonExpr (e : Expr) : RM String := do
   let st ← get
   -- handle mdata before assigning an index
@@ -170,7 +183,7 @@ partial def jsonExpr (e : Expr) : RM String := do
         [
           ("tag", json Tag.StrLit),
           ("ei", json index),
-          ("args", jsonListAsDict [("val", surroundWithQuotes (s.replace "\n" "\\n"))])
+          ("args", jsonListAsDict [("val", surroundWithQuotes (handleSpecialChar s))])
         ]
     | .app f a => do
       let rm_f ← jsonExpr f
