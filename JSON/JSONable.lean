@@ -12,6 +12,20 @@ instance : JSONable Bool where json b := toString b
 instance : JSONable Nat where json n := toString n
 instance : JSONable String where json s := s
 
+-- "\r","\n","\t","'","\"","\\","\t"
+def handleSpecialChar (s : String) : String :=
+  s.foldl (fun acc c =>
+    match c with
+    | '\r' => acc ++ "\\r"
+    | '\n' => acc ++ "\\n"
+    | '\t' => acc ++ "\\t"
+    | '\'' => acc ++ "\'"
+    | '\"' => acc ++ "\\\""
+    | '\\' => acc ++ "\\\\"
+    | _ => acc.push c
+  ) ""
+
+
 inductive Tag
 | LevelZero | LevelSucc | LevelMax | LevelIMax | LevelParam
 | BVar | Sort | Const | NatLit | StrLit | App | Lambda | Let | Pi | Proj
@@ -72,7 +86,7 @@ def JSONName (n : Name) : String :=
   | Name.str p s =>
     jsonListAsDict [
       ("tag", json Tag.SubName),
-      ("args", jsonListAsDict [("str", surroundWithQuotes s), ("anc", JSONName p)])
+      ("args", jsonListAsDict [("str", surroundWithQuotes (handleSpecialChar s)), ("anc", JSONName p)])
     ]
   | Name.num p i =>
     jsonListAsDict [
@@ -117,19 +131,6 @@ structure Repeated where
   expr2index : HashMap Expr Nat := {}
 
 abbrev RM := StateM Repeated
-
--- "\r","\n","\t","'","\"","\\","\t"
-def handleSpecialChar (s : String) : String :=
-  s.foldl (fun acc c =>
-    match c with
-    | '\r' => acc ++ "\\r"
-    | '\n' => acc ++ "\\n"
-    | '\t' => acc ++ "\\t"
-    | '\'' => acc ++ "\'"
-    | '\"' => acc ++ "\\\""
-    | '\\' => acc ++ "\\\\"
-    | _ => acc.push c
-  ) ""
 
 partial def jsonExpr (e : Expr) : RM String := do
   let st ← get
