@@ -204,7 +204,7 @@ partial def jsonExpr (e : Expr) : RM String := do
         [
           ("tag", json Tag.Lambda),
           ("ei", json index),
-          ("args", jsonListAsDict [("bname", json n), ("arg_type", rm_d), ("body", rm_b)])
+          ("args", jsonListAsDict [("bname", json n), ("domain", rm_d), ("body", rm_b)])
         ]
     | .letE n d v b _ => do
       let rm_d ← jsonExpr d
@@ -214,7 +214,7 @@ partial def jsonExpr (e : Expr) : RM String := do
         [
           ("tag", json Tag.Let),
           ("ei", json index),
-          ("args", jsonListAsDict [("bname", json n), ("arg_type", rm_d), ("val", rm_v), ("body", rm_b)])
+          ("args", jsonListAsDict [("bname", json n), ("domain", rm_d), ("val", rm_v), ("body", rm_b)])
         ]
     | .forallE n d b _bi => do
       let rm_d ← jsonExpr d
@@ -223,7 +223,7 @@ partial def jsonExpr (e : Expr) : RM String := do
         [
           ("tag", json Tag.Pi),
           ("ei", json index),
-          ("args", jsonListAsDict [("bname", json n), ("arg_type", rm_d), ("body_type", rm_b)])
+          ("args", jsonListAsDict [("bname", json n), ("domain", rm_d), ("codomain", rm_b)])
         ]
     | .proj sn i e => do
       let rm_e ← jsonExpr e
