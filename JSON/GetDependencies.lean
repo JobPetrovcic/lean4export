@@ -1,8 +1,7 @@
 import Lean
 open Lean
 
-
-
+-- get all the constants used in an expression
 def getDepsExpr (e : Expr) : List Name :=
   let depsArray := e.getUsedConstants
   depsArray.toList
