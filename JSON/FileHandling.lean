@@ -1,6 +1,6 @@
 import Lean
--- function that returns if the file with the given path exists
 
+-- function that returns if the file with the given path exists
 def fileExists (path : String) : IO Bool := do
   let r ← System.FilePath.pathExists path
   return r
