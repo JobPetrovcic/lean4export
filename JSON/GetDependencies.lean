@@ -1,6 +1,9 @@
 import Lean
-import Init.Data.List.Basic
 open Lean
+
+def myjoin : List (List α) → List α
+  | []      => []
+  | a :: as => a ++ myjoin as
 
 -- get all the constants used in an expression
 def getDepsExpr (e : Expr) : List Name :=
@@ -36,7 +39,7 @@ def getDeclarationDepsRaw : ConstantInfo → List Name
   | .recInfo val =>
     let typeDeps := getDepsExpr val.type
     let ruleDeps := val.rules.map (fun rule => getDepsExpr rule.rhs)
-    typeDeps ++ ruleDeps.join
+    typeDeps ++ (myjoin ruleDeps)
 
 -- same as getDeclarationDepsRaw but removes duplicates
 def getDeclarationDeps (c : ConstantInfo) : List Name :=
