@@ -1,4 +1,5 @@
 import Lean
+import Init.Data.List.Basic
 open Lean
 
 -- get all the constants used in an expression

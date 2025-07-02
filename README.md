@@ -1,168 +1,131 @@
-A simple declaration exporter for Lean 4. 
+# Lean 4 Declaration Exporter
 
-An exporter is a program which emits Lean declarations using Lean's kernel language, for consumption by external type checkers. Producing an export file is a complete exit from the Lean toolchain, and the data in the file can be checked with entirely external software.
+This tool exports Lean 4 declarations and their dependencies to a structured JSON format. It was designed to be efficient enough to export the entire Mathlib 4 library.
 
-The file format is described later in this document, and examples of the exporter's output can be found in the `examples` folder of this repository.
+## Quick Startup
 
-## How to Run
+This guide provides the minimal steps to use this tool within your own Lean project.
 
-After building the program, users can invoke the exporter from the command line.
+1.  **Prerequisites**: Ensure you have a working Lean 4 project.
 
-```sh
-$ lake exe lean4export <mods> [-- <decls>]
-```
-This exports the contents of the given Lean modules, looked up in the core library or `LEAN_PATH` (as e.g. initialized by an outer `lake env`) and their transitive dependencies.
+2.  **Add as a dependency**: Add this package to your project's `lakefile.lean`.
+    ```lean
+    require lean4export from git "https://github.com/JobPetrovcic/lean4export.git" @ "json"
+    ```
 
-A specific list of declarations to be exported from these modules can be given after a separating `--`.
+3.  **Build your project**: Update your dependencies and build your project.
+    ```bash
+    lake update
+    lake build
+    ```
 
-If you're getting an error about not finding your project, you can run the exporter against your current directory without modifying the `LEAN_PATH`:
+4.  **Run the exporter**: Execute the main program to export declarations. The basic command structure is:
+    ```bash
+    lake exe lean4export <output_directory> <lean_module>
+    ```
+    For example, to export all declarations from `Mathlib.Data.Nat.Basic` into a directory named `data`, run:
+    ```bash
+    lake exe lean4export data Mathlib.Data.Nat.Basic
+    ```
+    This will create the `data` directory (if it doesn't exist) and populate it with JSON files, one for each declaration in `Mathlib.Data.Nat.Basic` and its dependencies.
 
-```sh
-$ lake env <path to lean4export bin> <mods> [-- <decls>]
-```
+## Using Arguments
 
-## Format Extensions
+The program's behavior can be customized using command-line arguments.
 
-The following commands have been added to represent new features of the Lean 4 type system.
-
-```
-<eidx'> #EJ <nidx> <integer> <eidx>
-```
-A primitive projection of the `<integer>`-nth field of a value `<eidx>` of the record type `<nidx>`.
-Example: the primitive projection corresponding to `Prod.snd` of the innermost bound variable
-```
-1 #NS 0 Prod
-0 #EV 0
-1 #EJ 1 1 0
-```
-
-```
-<eidx'> #ELN <integer>
-<eidx'> #ELS <hexhex>*
-```
-Primitive literals of type `Nat` and `String` (encoded as a sequence of UTF-8 bytes in hexadecimal), respectively.
-Examples:
-```
-0 #ELN 1000000000000000
-1 #ELS 68 69  # "hi"
+The general syntax is:
+```bash
+lake exe lean4export <outDir> [imports...] [-- constants...]
 ```
 
-```
-<eidx'> #EZ <nidx> <eidx_1> <eidx_2> <eidx_3>
-```
-A binding `let <nidx> : <eidx_1> := <eidx_2>; <eidx_3>`.
-Already supported by the Lean 3 export format, but not documented.
-Example: the encoding of `let x : Nat := Nat.zero; x` is
-```
-1 #NS 0 x
-2 #NS 0 Nat
-0 #EC 2 
-3 #NS 2 zero
-1 #EC 3 
-2 #EV 0
-3 #EZ 1 0 1 2
+*   `<outDir>`: (Required) The path to the directory where the output JSON files will be stored.
+*   `[imports...]`: (Required) A space-separated list of Lean modules to process. The tool will export declarations from these modules.
+*   `--`: An optional separator.
+*   `[constants...]`: An optional list of specific constant names to export. If this list is provided, only these constants and their dependencies will be exported. If omitted, all non-internal declarations from the specified `imports` will be exported.
+
+### Example
+
+To export only the `Nat.add` and `Nat.mul` declarations from `Mathlib.Data.Nat.Basic` into a directory named `data`, use the following command:
+
+```bash
+lake exe lean4export data Mathlib.Data.Nat.Basic -- Nat.add Nat.mul
 ```
 
-## Export file format (ver 0.1.2)
+## JSON Output Format
 
-For clarity, some of the compound items are decorated here with a name, for example `(name : T)`, but they appear in the export file as just an element of `T`.
+The tool generates one JSON file per declaration. The filename is a "file-friendly" version of the declaration's name (e.g., `/` is replaced by a space).
 
-The export scheme for mutual and nested inductives is as follows: 
-+ `Inductive.inductiveNames` contains the names of all types in the `mutual .. end` block. The names of any other inductive types used in a nested (but not mutual) construction will not be included.
-+ `Inductive.constructorNames` contains the names of all constructors for THAT inductive type, and no others (no constructors of the other types in a mutual block, and no constructors from any nested construction).
+Each JSON file contains a top-level object with two properties:
 
-**NOTE:** readers writing their own parsers and/or checkers should initialize names[0] as the anonymous name, and levels[0] as universe zero, as they are not emitted by the exporter, but are expected to occupy the name and level indices for 0.
+*   `dependencies`: A list of strings representing the names of other declarations that the current declaration depends on. These names are also made file-friendly.
+*   `content`: An object containing the detailed information about the declaration.
 
-```
-File ::= ExportFormatVersion Item*
+### The `content` Object
 
-ExportFormatVersion ::= nat '.' nat '.' nat
+The `content` object's structure depends on the type of declaration. It always includes a `tag` field indicating the declaration type. Here are the possible tags and their associated fields:
 
-Item ::= Name | Universe | Expr | RecRule | Declaration
+*   **`Axiom`**:
+    *   `name`: The name of the axiom.
+    *   `levelParams`: A list of level parameter names.
+    *   `type`: The JSON representation of the axiom's type (an `Expr`).
 
-Declaration ::= 
-    | Axiom 
-    | Quotient 
-    | Definition 
-    | Theorem 
-    | Inductive 
-    | Constructor 
-    | Recursor
+*   **`Definition`**:
+    *   `name`: The name of the definition.
+    *   `levelParams`: A list of level parameter names.
+    *   `type`: The JSON representation of the definition's type (`Expr`).
+    *   `value`: The JSON representation of the definition's value (`Expr`).
+    *   `hints`: The reducibility hint (`abbrev`, `regular`, or `opaque`).
 
-nidx, uidx, eidx, ridx ::= nat
+*   **`Theorem`**:
+    *   `name`: The name of the theorem.
+    *   `levelParams`: A list of level parameter names.
+    *   `type`: The JSON representation of the theorem's type (`Expr`).
+    *   `value`: The JSON representation of the theorem's proof (`Expr`).
 
-Name ::=
-  | nidx "#NS" nidx string
-  | nidx "#NI" nidx nat
+*   **`Opaque`**:
+    *   `name`: The name of the opaque constant.
+    *   `levelParams`: A list of level parameter names.
+    *   `type`: The JSON representation of the type (`Expr`).
+    *   `value`: The JSON representation of the value (`Expr`).
 
-Universe ::=
-  | uidx "#US"  uidx
-  | uidx "#UM"  uidx uidx
-  | uidx "#UIM" uidx uidx
-  | uidx "#UP"  nidx
+*   **`Inductive`**:
+    *   `name`: The name of the inductive type.
+    *   `levelParams`: A list of level parameter names.
+    *   `type`: The JSON representation of the type (`Expr`).
+    *   `numParams`: The number of parameters.
+    *   `numIndices`: The number of indices.
+    *   `all`: A list of all inductive type names in the same mutual block.
+    *   `ctors`: A list of constructor names for this inductive type.
+    *   `isRec`: A boolean indicating if it is a recursive inductive type.
 
-Expr ::=
-  | eidx "#EV"  nat
-  | eidx "#ES"  uidx
-  | eidx "#EC"  nidx uidx*
-  | eidx "#EA"  eidx eidx
-  | eidx "#EL"  Info nidx eidx
-  | eidx "#EP"  Info nidx eidx eidx
-  | eidx "#EZ"  Info nidx eidx eidx eidx
-  | eidx "#EJ"  nidx nat eidx
-  | eidx "#ELN" nat
-  | eidx "#ELS" (hexhex)*
+*   **`Constructor`**:
+    *   `name`: The name of the constructor.
+    *   `levelParams`: A list of level parameter names.
+    *   `type`: The JSON representation of the constructor's type (`Expr`).
+    *   `induct`: The name of the inductive type this constructor belongs to.
+    *   `cidx`: The index of this constructor within the inductive type.
+    *   `numParams`: The number of parameters for the constructor.
+    *   `numFields`: The number of fields for the constructor.
 
-Info ::= "#BD" | "#BI" | "#BS" | "#BC"
+*   **`Recursor`**:
+    *   `name`: The name of the recursor.
+    *   `levelParams`: A list of level parameter names.
+    *   `type`: The JSON representation of the recursor's type (`Expr`).
+    *   `all`: A list of all inductive types in the mutual block.
+    *   `numParams`: The number of parameters.
+    *   `numIndices`: The number of indices.
+    *   `numMotives`: The number of motives.
+    *   `numMinors`: The number of minor premises.
+    *   `rules`: A list of recursor rules.
+    *   `k`: A boolean indicating if it is a K-recursor.
 
-Hint ::= "O" | "A" | "R" nat
+### Expression (`Expr`) Format
 
-RecRule ::= ridx "#RR" (ctorName : nidx) (nFields : nat) (val : eidx)
+Lean expressions (`Expr`) are represented as nested JSON objects. To handle cycles and reduce redundancy, expressions that appear multiple times are referenced by an index `ei`.
 
-Axiom ::= "#AX" (name : nidx) (type : eidx) (uparams : uidx*)
+Each expression object has a `tag` and other properties depending on the tag. For example:
+*   `{"tag": "Const", "name": "Nat", "levels": []}`
+*   `{"tag": "App", "fn": {...}, "arg": {...}}`
 
-Def ::= "#DEF" (name : nidx) (type : eidx) (value : eidx) (hint : Hint) (uparams : uidx*)
-  
-Theorem ::= "#THM" (name : nidx) (type : eidx) (value : eidx) (uparams: uidx*)
-
-Quotient ::= "#QUOT" (name : nidx) (type : eidx) (uparams : uidx*)
-
-Inductive ::= 
-  "#IND"
-  (name : nidx) 
-  (type : eidx) 
-  (isRecursive: 0 | 1)
-  (isNested : 0 | 1)
-  (numParams: nat) 
-  (numIndices: nat)
-  (numInductives: nat)
-  (inductiveNames: nidx {numInductives})
-  (numConstructors : nat) 
-  (constructorNames : nidx {numConstructors}) 
-  (uparams: uidx*)
-
-Constructor ::= 
-  "#CTOR"
-  (name : nidx) 
-  (type : eidx) 
-  (parentInductive : nidx) 
-  (constructorIndex : nat)
-  (numParams : nat)
-  (numFields : nat)
-  (uparams: uidx*)
-
-Recursor ::= 
-  "#REC"
-  (name : nidx)
-  (type : eidx)
-  (numInductives : nat)
-  (inductiveNames: nidx {numInductives})
-  (numParams : nat)
-  (numIndices : nat)
-  (numMotives : nat)
-  (numMinors : nat)
-  (numRules : nat)
-  (recRules : ridx {numRules})
-  (k : 1 | 0)
-  (uparams : uidx*)
-```
+If an expression has been seen before, it is represented as:
+*   `{"tag": "ExprRef", "ei": <index>}`
