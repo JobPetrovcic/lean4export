@@ -1,4 +1,5 @@
 import Lean
+import Batteries.Data.HashMap.Basic
 
 open Lean
 
@@ -141,7 +142,7 @@ instance : JSONable Level where json l := jsonLevel l
 
 -- The structure Repeated is used to keep track of the expressions that repeat. Avoids exponential blowup in the JSON representation of expressions.
 structure Repeated where
-  expr2index : HashMap Expr Nat := {}
+  expr2index : Std.HashMap Expr Nat := {}
 
 -- The StateM monad is used to keep track of the hashmap that maps expressions to their index.
 abbrev RM := StateM Repeated
@@ -167,7 +168,7 @@ partial def jsonExpr (e : Expr) : RM String := do
     jsonExpr e
   else
   if st.expr2index.contains e then
-    let index := st.expr2index.find! e
+    let index := st.expr2index.get! e
     return jsonListAsDict [("tag", json Tag.ExprRef), ("ei", json index)]
   else
 
