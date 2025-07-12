@@ -23,11 +23,11 @@ This guide provides the minimal steps to use this tool within your own Lean proj
     ```bash
     lake exe lean4export <output_directory> <lean_module>
     ```
-    For example, to export all declarations from `Mathlib.Data.Nat.Basic` into a directory named `data`, run:
+    For example, to export all declarations from `Mathlib.Data.Nat.Basic` into a directory named `data` (NOTE: the directory must exist), run:
     ```bash
     lake exe lean4export data Mathlib.Data.Nat.Basic
     ```
-    This will create the `data` directory (if it doesn't exist) and populate it with JSON files, one for each declaration in `Mathlib.Data.Nat.Basic` and its dependencies.
+    This will populate the directory with JSON files, one for each declaration in `Mathlib.Data.Nat.Basic` and its dependencies.
 
 ## Using Arguments
 
@@ -40,7 +40,7 @@ lake exe lean4export <outDir> [imports...] [-- constants...]
 
 *   `<outDir>`: (Required) The path to the directory where the output JSON files will be stored.
 *   `[imports...]`: (Required) A space-separated list of Lean modules to process. The tool will export declarations from these modules.
-*   `--`: An optional separator.
+*   `--`: An optional separator. (NOTE: after the double dash a space is required)
 *   `[constants...]`: An optional list of specific constant names to export. If this list is provided, only these constants and their dependencies will be exported. If omitted, all non-internal declarations from the specified `imports` will be exported.
 
 ### Example
@@ -53,7 +53,7 @@ lake exe lean4export data Mathlib.Data.Nat.Basic -- Nat.add Nat.mul
 
 ## JSON Output Format
 
-The tool generates one JSON file per declaration. The filename is a "file-friendly" version of the declaration's name (e.g., `/` is replaced by a space).
+The tool generates one JSON file per declaration. The filename is a "file-friendly" version of the declaration's name (e.g., `/` is replaced by a space, since spaces cannot appear in names coming from Lean).
 
 Each JSON file contains a top-level object with two properties:
 
