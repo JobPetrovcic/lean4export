@@ -1,6 +1,6 @@
 # Lean 4 Declaration Exporter
 
-This tool exports Lean 4 declarations and their dependencies to a structured JSON format. It was designed to be efficient enough to export the entire Mathlib 4 library.
+This tool exports Lean 4 declarations and their dependencies to a structured JSON format. It was designed to be efficient enough to export the entire Mathlib 4 library. For an external implementation of Lean's typechecker in python that can check the export, check https://github.com/JobPetrovcic/LeanPy.
 
 ## Quick Startup
 
@@ -45,7 +45,7 @@ lake exe lean4export <outDir> [imports...] [-- constants...]
 
 ### Example
 
-To export only the `Nat.add` and `Nat.mul` declarations from `Mathlib.Data.Nat.Basic` into a directory named `data`, use the following command:
+To export only the `Nat.add` and `Nat.mul` declarations from `Mathlib.Data.Nat.Basic` along with their dependencies into a directory named `data`, use the following command:
 
 ```bash
 lake exe lean4export data Mathlib.Data.Nat.Basic -- Nat.add Nat.mul
