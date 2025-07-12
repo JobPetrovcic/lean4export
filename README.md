@@ -238,3 +238,15 @@ Lean expressions (`Expr`) are represented as nested JSON objects. To reduce redu
         *   `constructor`: The `Name` of the constructor this rule applies to.
         *   `num_fields`: The number of fields for the constructor.
         *   `value`: The right-hand-side `Expr` of the rule.
+
+### Example
+The definition `exported_example`
+```lean
+def export_example: Sort 1 := Sort 0
+```
+
+is exported as
+
+```json
+{"dependencies": [], "content": {"tag": "Definition", "args": {"info": {"tag": "DeclarationInfo", "args": {"ciname": {"tag": "SubName", "args": {"str": "export_example", "anc": {"tag": "Anonymous", "args": {}}}}, "lvl_params": [], "type": {"tag": "Sort", "ei": 0, "args": {"level": {"tag": "LevelSucc", "args": {"anc": {"tag": "LevelZero", "args": {}}}}}}}}, "value": {"tag": "Sort", "ei": 0, "args": {"level": {"tag": "LevelZero", "args": {}}}}, "hint": {"tag": "Regular", "args": {"depth": 1}}}}}
+```
