@@ -1,6 +1,6 @@
 # Lean 4 Declaration Exporter
 
-This tool exports Lean 4 declarations and their dependencies to a structured JSON format. It was designed to be efficient enough to export the entire Mathlib 4 library. For an external implementation of Lean's typechecker in python that can check the export, check https://github.com/JobPetrovcic/LeanPy.
+This tool exports Lean 4 declarations and their dependencies to a structured JSON format. It was designed to be efficient enough to export the entire Mathlib 4 library. For an external implementation of Lean's typechecker in Python that can typecheck the exports, see https://github.com/JobPetrovcic/LeanPy.
 
 ## Quick Startup
 
