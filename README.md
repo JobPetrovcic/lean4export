@@ -60,72 +60,181 @@ Each JSON file contains a top-level object with two properties:
 *   `dependencies`: A list of strings representing the names of other declarations that the current declaration depends on. These names are also made file-friendly.
 *   `content`: An object containing the detailed information about the declaration.
 
-### The `content` Object
+## Lean Export JSON Format
 
-The `content` object's structure depends on the type of declaration. It always includes a `tag` field indicating the declaration type. Here are the possible tags and their associated fields:
+This document describes the JSON format for serializing Lean 4 declarations. The format uses a consistent structure of tagged unions, where each object has a `tag` field indicating its type and an `args` field containing its data.
+
+### Top-Level Declaration Format
+
+Every exported declaration is a JSON object with a `tag` and an `args` field. Most declarations share common information (name, level parameters, and type), which is encapsulated within a nested `DeclarationInfo` object.
+
+#### Common Object: `DeclarationInfo`
+
+This object contains the base information for a constant.
+
+*   **`tag`**: `DeclarationInfo`
+*   **`args`**:
+    *   `ciname`: The JSON representation of the declaration's `Name`.
+    *   `lvl_params`: A list of `Level` objects representing the universe level parameters.
+    *   `type`: The JSON representation of the declaration's type (an `Expr`).
+
+---
+
+The following are the possible top-level declaration tags:
 
 *   **`Axiom`**:
-    *   `name`: The name of the axiom.
-    *   `levelParams`: A list of level parameter names.
-    *   `type`: The JSON representation of the axiom's type (an `Expr`).
+    *   `args`:
+        *   `info`: A `DeclarationInfo` JSON object for the axiom.
 
 *   **`Definition`**:
-    *   `name`: The name of the definition.
-    *   `levelParams`: A list of level parameter names.
-    *   `type`: The JSON representation of the definition's type (`Expr`).
-    *   `value`: The JSON representation of the definition's value (`Expr`).
-    *   `hints`: The reducibility hint (`abbrev`, `regular`, or `opaque`).
+    *   `args`:
+        *   `info`: A `DeclarationInfo` JSON object for the definition.
+        *   `value`: The JSON representation of the definition's value (`Expr`).
+        *   `hint`: A `ReducibilityHint` JSON object.
 
 *   **`Theorem`**:
-    *   `name`: The name of the theorem.
-    *   `levelParams`: A list of level parameter names.
-    *   `type`: The JSON representation of the theorem's type (`Expr`).
-    *   `value`: The JSON representation of the theorem's proof (`Expr`).
+    *   `args`:
+        *   `info`: A `DeclarationInfo` JSON object for the theorem.
+        *   `value`: The JSON representation of the theorem's proof (`Expr`).
 
 *   **`Opaque`**:
-    *   `name`: The name of the opaque constant.
-    *   `levelParams`: A list of level parameter names.
-    *   `type`: The JSON representation of the type (`Expr`).
-    *   `value`: The JSON representation of the value (`Expr`).
+    *   `args`:
+        *   `info`: A `DeclarationInfo` JSON object for the opaque constant.
+        *   `value`: The JSON representation of the value (`Expr`).
+
+*   **`Quot`**: Represents a quotient type declaration.
+    *   `args`:
+        *   `info`: A `DeclarationInfo` JSON object for the quotient type.
 
 *   **`Inductive`**:
-    *   `name`: The name of the inductive type.
-    *   `levelParams`: A list of level parameter names.
-    *   `type`: The JSON representation of the type (`Expr`).
-    *   `numParams`: The number of parameters.
-    *   `numIndices`: The number of indices.
-    *   `all`: A list of all inductive type names in the same mutual block.
-    *   `ctors`: A list of constructor names for this inductive type.
-    *   `isRec`: A boolean indicating if it is a recursive inductive type.
+    *   `args`:
+        *   `info`: A `DeclarationInfo` JSON object for the inductive type.
+        *   `is_recursive`: A boolean indicating if it is a recursive inductive type.
+        *   `num_params`: The number of parameters.
+        *   `num_indices`: The number of indices.
+        *   `inductive_names`: A list of all inductive type `Name` objects in the same mutual block.
+        *   `constructor_names`: A list of constructor `Name` objects for this inductive type.
 
 *   **`Constructor`**:
-    *   `name`: The name of the constructor.
-    *   `levelParams`: A list of level parameter names.
-    *   `type`: The JSON representation of the constructor's type (`Expr`).
-    *   `induct`: The name of the inductive type this constructor belongs to.
-    *   `cidx`: The index of this constructor within the inductive type.
-    *   `numParams`: The number of parameters for the constructor.
-    *   `numFields`: The number of fields for the constructor.
+    *   `args`:
+        *   `info`: A `DeclarationInfo` object for the constructor.
+        *   `inductive_name`: The `Name` of the inductive type this constructor belongs to.
+        *   `c_index`: The index of this constructor within the inductive type.
+        *   `num_params`: The number of parameters for the constructor.
+        *   `num_fields`: The number of fields for the constructor.
 
 *   **`Recursor`**:
-    *   `name`: The name of the recursor.
-    *   `levelParams`: A list of level parameter names.
-    *   `type`: The JSON representation of the recursor's type (`Expr`).
-    *   `all`: A list of all inductive types in the mutual block.
-    *   `numParams`: The number of parameters.
-    *   `numIndices`: The number of indices.
-    *   `numMotives`: The number of motives.
-    *   `numMinors`: The number of minor premises.
-    *   `rules`: A list of recursor rules.
-    *   `k`: A boolean indicating if it is a K-recursor.
+    *   `args`:
+        *   `info`: A `DeclarationInfo` JSON object for the recursor.
+        *   `num_params`: The number of parameters.
+        *   `num_indices`: The number of indices.
+        *   `num_motives`: The number of motives.
+        *   `num_minors`: The number of minor premises.
+        *   `recursor_rules`: A list of `RecursorRule` objects.
+        *   `isK`: A boolean indicating if it is a K-recursor.
+    For more information about recursors and inductive types in Lean, see (https://leanprover.github.io/theorem_proving_in_lean/inductive_types.html).
+    
 
-### Expression (`Expr`) Format
+### Core Data Structures
 
-Lean expressions (`Expr`) are represented as nested JSON objects. To handle cycles and reduce redundancy, expressions that appear multiple times are referenced by an index `ei`.
+#### Name (`Name`) Format
 
-Each expression object has a `tag` and other properties depending on the tag. For example:
-*   `{"tag": "Const", "name": "Nat", "levels": []}`
-*   `{"tag": "App", "fn": {...}, "arg": {...}}`
+Names are represented as a recursive structure.
 
-If an expression has been seen before, it is represented as:
-*   `{"tag": "ExprRef", "ei": <index>}`
+*   **`Anonymous`**: The anonymous root name.
+    *   `args`: An empty object `{}`.
+*   **`SubName`**: A name component (string or number) extending a prefix name.
+    *   `args`:
+        *   `str`: The string representation of this part of the name.
+        *   `anc`: The `Name` object of the prefix/ancestor.
+
+#### Expression (`Expr`) Format
+
+Lean expressions (`Expr`) are represented as nested JSON objects. To reduce redundancy, every unique expression is assigned a numerical index (`ei`). Then, ExprRef refers to a duplicate expression that was already exported by this index.
+
+**General Expr Structure:**
+
+*   **First Occurrence:** When an expression is first seen, it is fully serialized:
+    *   `tag`: The kind of expression (e.g., `Const`, `App`).
+    *   `ei`: A unique integer index assigned to this expression.
+    *   `args`: An object containing data specific to this expression tag.
+
+*   **Reference:** Any subsequent time the same expression is needed, it is represented by a reference:
+    *   `tag`: `ExprRef`
+    *   `ei`: The index of the expression being referenced.
+
+**Expression Tags and their `args`:**
+
+*   **`BVar`** (Bound Variable):
+    *   `db_index`: The de Bruijn index of the variable.
+
+*   **`Sort`**:
+    *   `level`: The `Level` object for the sort.
+
+*   **`Const`**:
+    *   `cname`: The `Name` of the constant.
+    *   `lvl_params`: A list of `Level` objects for the universe parameters.
+
+*   **`NatLit`**:
+    *   `val`: The integer value of the natural number literal.
+
+*   **`StrLit`**:
+    *   `val`: The string value of the literal.
+
+*   **`App`**:
+    *   `fn`: The function `Expr`.
+    *   `arg`: The argument `Expr`.
+
+*   **`Lambda`**:
+    *   `bname`: The `Name` of the binder.
+    *   `domain`: The domain (type) `Expr` of the binder.
+    *   `body`: The body `Expr` of the lambda.
+
+*   **`Pi`** (Dependent Function Type):
+    *   `bname`: The `Name` of the binder.
+    *   `domain`: The domain `Expr` of the binder.
+    *   `codomain`: The body `Expr` of the pi-type.
+
+*   **`Let`**:
+    *   `bname`: The `Name` of the binder.
+    *   `domain`: The type `Expr` of the let-binding.
+    *   `val`: The value `Expr` of the let-binding.
+    *   `body`: The body `Expr` of the let-expression.
+
+*   **`Proj`** (Projection):
+    *   `sname`: The `Name` of the instance's structure.
+    *   `index`: The index of the field to project.
+    *   `expr`: The `Expr` of the structure instance.
+
+#### Level (`Level`) Format
+
+*   **`LevelZero`**: The ground universe `Level`.
+    *   `args`: An empty object `{}`.
+*   **`LevelSucc`**: The successor of a level.
+    *   `args`:
+        *   `anc`: The predecessor `Level` object.
+*   **`LevelMax`**: The maximum of two levels.
+    *   `args`:
+        *   `lhs`: The first `Level` object.
+        *   `rhs`: The second `Level` object.
+*   **`LevelIMax`**: The "impredicative" maximum of two levels.
+    *   `args`:
+        *   `lhs`: The first `Level` object.
+        *   `rhs`: The second `Level` object.
+*   **`LevelParam`**: A universe parameter.
+    *   `args`:
+        *   `pname`: The `Name` of the level parameter.
+
+#### Other Structures
+
+*   **`ReducibilityHint`**: a hint for the kernel whether or how much to unfold a definition
+    *   **`OpaqueHint`**: `{"tag": "OpaqueHint", "args": {}}`
+    *   **`Abbrev`**: `{"tag": "Abbrev", "args": {}}`
+    *   **`Regular`**: `{"tag": "Regular", "args": {"depth": <number>}}`
+
+*   **`RecursorRule`**: Describes a rule for a recursor.
+    *   `tag`: `RecursorRule`
+    *   `args`:
+        *   `constructor`: The `Name` of the constructor this rule applies to.
+        *   `num_fields`: The number of fields for the constructor.
+        *   `value`: The right-hand-side `Expr` of the rule.
